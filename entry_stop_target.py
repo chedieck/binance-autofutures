@@ -221,9 +221,9 @@ class ClientETS(Client):
 
     def clear_goals(self, goal_dict):
         if stop := goal_dict['stop']:
-            if type(stop == dict):  # case where target is an order.
+            if type(stop) == dict:  # case where target is an order.
                 self.futures_cancel_order(symbol=stop['symbol'], orderId=stop['orderId'])
-            elif type(stop == tuple):  # case where target is process
+            elif type(stop) == tuple:  # case where target is process
                 stop[1].terminate()
         if target := goal_dict['target']:
             self.futures_cancel_order(symbol=target['symbol'], orderId=target['orderId'])
@@ -272,23 +272,28 @@ class ClientETS(Client):
     def watch_for_end(self, goals):
         # check if any of the goals have already been completed
         time.sleep(1)
-        stop = goals['stops']
+        stop = goals['stop']
         target = goals['target']
         symbol = goals['target']['symbol']
         while True:
-            print("waiting at exit loop...")
-            if type(stop == dict):  # case where target is an order.
-                stop_status = self.futures_get_order(symbol=symbol, orderId=stop['orderId'])['status'] 
-                stop_is_on = stop_status != 'FILLED'
+            try:
+                print("waiting at exit loop...")
+                if type(stop) == dict:  # case where target is an order.
+                    stop_status = self.futures_get_order(symbol=symbol, orderId=stop['orderId'])['status']
+                    stop_is_on = stop_status != 'FILLED'
 
-            elif type(stop == tuple):  # case where target is process
-                stop_is_on = stop[1].is_alive()
+                elif type(stop) == tuple:  # case where target is process
+                    stop_is_on = stop[1].is_alive()
+                    stop_status = stop_is_on
 
-            target_status = self.futures_get_order(symbol=symbol, orderId=target['orderId'])['status'] 
-            target_is_on = target_status != 'FILLED'
-            print(f"stata is {stop_status}, {target_status}")
+                target_status = self.futures_get_order(symbol=symbol, orderId=target['orderId'])['status']
+                target_is_on = target_status != 'FILLED'
+            except ReadTimeout:
+                print("timeout, trying again...")
+                time.sleep(1)
+                continue
+            
             if not (target_is_on and stop_is_on):
-                self.clear_goals(goals)
                 return
             time.sleep(1)
 
