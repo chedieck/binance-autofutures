@@ -22,7 +22,7 @@ def init_args():
                         help="buy or sell")
     parser.add_argument("-a", "--amount", type=float, required=True,
                         help="amount to be traded")
-    parser.add_argument("-e", "--entry", type=float, required=True,
+    parser.add_argument("-e", "--entry", type=float,
                         help="Entry price")
     parser.add_argument("-l", "--leverage", action="store_true", default=10,
                         help="future contracts?")
@@ -79,19 +79,21 @@ def init_args():
     # activations and limits are following
     # the order they should.
     if args.position.upper() == 'BUY':
-        assert stop_value < args.entry, (
-                "Stop must be lower than entry for BUY order")
-        assert target_value > args.entry, (
-                "Target must be greater than entry for BUY order")
+        if args.entry:
+            assert stop_value < args.entry, (
+                    "Stop must be lower than entry for BUY order")
+            assert target_value > args.entry, (
+                    "Target must be greater than entry for BUY order")
         if stop_type == 'stop_limit_activation':
             assert args.price_stop_limit < stop_value, (
                     "Stop price must be smaller than activation for BUY order")
 
     elif args.position.upper() == 'SELL':
-        assert stop_value > args.entry, (
-                "Stop must be grater than entry for SELL order")
-        assert target_value < args.entry, (
-            "Target must be lower than entry for SELL order")
+        if args.entry:
+            assert stop_value > args.entry, (
+                    "Stop must be grater than entry for SELL order")
+            assert target_value < args.entry, (
+                "Target must be lower than entry for SELL order")
         if stop_type == 'stop_limit_activation':
             assert args.price_stop_limit > stop_value, (
                     "Stop price must be greater than activation for SELL order")
@@ -236,6 +238,14 @@ class ClientETS(Client):
         leverage = full_args.leverage
         entry = full_args.entry
         self.futures_change_leverage(symbol=symbol, leverage=leverage)
+        goals = {'stop': '', 'target': ''}
+
+        # case where we are already on position
+        if not entry:
+            goals['stop'] = self.create_goal(parsed_args, amount, stop=1)
+            goals['target'] = self.create_goal(parsed_args, amount)
+            print("goals set.")
+            return goals
 
         # set limit order
         limit = self.futures_create_order(symbol=symbol,
@@ -247,16 +257,15 @@ class ClientETS(Client):
                                           timeInForce='GTC')
 
         # set goals
-        goals = {'stop': '', 'target': ''}
         executed = 0
         print('sending limit...')
         while limit['status'] != 'CANCELED':
-            limit = self.futures_get_order(symbol=symbol, orderId=limit['orderId'])
-            print(f"limit status is {limit['status']}...")
             time.sleep(REFRESH_RATE)
+            limit = self.futures_get_order(symbol=symbol, orderId=limit['orderId'])
             if limit['status'] == 'NEW':
                 continue
             elif limit['executedQty'] != executed:
+                print(f"limit status is {limit['status']}...")
                 print(f"{limit['executedQty']} foi executado!")
                 self.clear_goals(goals)
                 goals['stop'] = self.create_goal(parsed_args, limit['executedQty'], stop=1)
@@ -266,7 +275,7 @@ class ClientETS(Client):
             if limit['status'] == 'FILLED':
                 break
             print(f"goals: {goals}")
-        print(f"aqui acabou!")
+        print(f"all target and stops are set\n---/---")
         return goals
 
     def watch_for_end(self, goals):
