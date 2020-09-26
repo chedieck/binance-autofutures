@@ -40,4 +40,23 @@ optional arguments:
 ```
 ---
 
-Working in progress, will update the documentation in the future.
+(Working in progress, will update the documentation in the future.)
+### WARNING! This code is a work in progress and may contain bugs. Use it at your own risk.
+
+This script uses **Binance API**. To set up the keys, just create an `api.py` file on your cloned directory with two lines:
+
+```
+pub = "<your_public_api_key_goes_here>"
+pri = "<your_private_api_key_goes_here>"
+```
+
+---
+
+Examples: 
+1. `python entry_stop_target.py -s BTCUSDT -p buy -a 0.1 -e 10686.5 -sts 10680 -cs 0.1 -tl 10690`
+
+    * This command will try to buy 0.1 BTC at $10686.5. If it succeds on doing so, it will set a limit order to close the position (sell the same amount, 0.1 BTC) at $10690; or, if the price reaches $10680 first, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order with a callback rate of 0.1%.
+
+2. `python entry_stop_target.py -s LINKUSDT -p sell -a 50 -e 19.9 -sm 21 -tts 15.1 -ct 1`
+
+    * This command will try to sell (short) 50 LINKS at $19.9. If it succeds on doing so, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
