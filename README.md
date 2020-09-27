@@ -53,6 +53,17 @@ pri = "<your_private_api_key_goes_here>"
 
 ---
 
+When running the command, note that the `--symbol`, `--amount` and `--position` are mandatory arguments.
+
+ Exactly one type of stop and one type of target also must be provided. If the `--stop-trailing-stop` option is used, then the `--callback-stop` must be set. Similarly, the `--target-trailing-stop` requires the `--callback-target` option. At last, if the `--stop-limit-activation` is the chosen stop type, the `--price-stop-limit` must be set.
+
+The `--amount` is the quantity that will be longed/shorted, and it is not affected by the `--leverage`. For example, if the leverage is set to 20x (default value), and you chose to buy 1 BTC (`--symbol BTCUSDT --position buy --amount 1`) for 10000 dollars, then 500 dollars of your futures wallet will be needed to process the order. If you instead pass the argument `--leverage 100`, setting the leverage to 100x, only 100 dollars will be needed. On those two scenarios the potential for profits and losses are the same, as in both of them a long position of exactly 1 BTC will be set.
+
+
+The `--verbose`, `--leverage` options are not required. The `--entry` option is also not required: you can also use the script if you are already on a position.
+
+---
+
 Examples: 
 1. `python entry_stop_target.py -s BTCUSDT -p buy -a 0.1 -e 10686.5 -sts 10680 -cs 0.1 -tl 10690`
 
@@ -63,4 +74,3 @@ Examples:
     * This command will try to sell (short) 50 LINKS at $19.9. If it succeds on doing so, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
 
 
-Note that the `-e` option is not required: you can also use the script if you are already on a position.
