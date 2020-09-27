@@ -10,6 +10,7 @@ usage: Set an entry, stop and target at the same time. [-h] -s SYMBOL -p POSITIO
 
 optional arguments:
   -h, --help            show this help message and exit
+  -v, --verbose         Show your PNL history.
   -s SYMBOL, --symbol SYMBOL
                         Symbol to trade on
   -p POSITION, --position POSITION
@@ -18,7 +19,7 @@ optional arguments:
                         amount to be traded
   -e ENTRY, --entry ENTRY
                         Entry price
-  -l, --leverage        future contracts?
+  -l, --leverage        how much leverage (does not change the amount)
   -sla STOP_LIMIT_ACTIVATION, --stop-limit-activation STOP_LIMIT_ACTIVATION
                         Stop-limit activation price
   -sm STOP_MARKET, --stop-market STOP_MARKET
@@ -60,3 +61,6 @@ Examples:
 2. `python entry_stop_target.py -s LINKUSDT -p sell -a 50 -e 19.9 -sm 21 -tts 15.1 -ct 1`
 
     * This command will try to sell (short) 50 LINKS at $19.9. If it succeds on doing so, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
+
+
+Note that the `-e` option is not required: you can also use the script if you are already on a poistion.
