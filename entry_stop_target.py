@@ -127,15 +127,12 @@ class ClientETS(Client):
 
         if self.full_args.verbose:
             self.show_pnl_history()
-            
 
     def show_pnl_history(self):
-        incomes = self.futures_income_history()
-        total = 0
-        for inc in incomes:
-            if inc['incomeType'] == 'REALIZED_PNL':
-                total += float(inc['income'])
-        return total
+        incomes = self.futures_income_history(incomeType="REALIZED_PNL",
+                                              startTime=0, limit=1000)
+        total = sum([float(inc['income']) for inc in incomes])
+        print(f"total profit for last {len(incomes)} trades: {total}")
 
     def custom_trailing(self, callback):
         print('1s wait... (why is this necessary?)')
