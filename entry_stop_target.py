@@ -16,6 +16,8 @@ def init_args():
     For both stop and targets you can use limit, market or trailing.
     """
     parser = argparse.ArgumentParser("Set an entry, stop and target at the same time.")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Show your PNL history.")
     parser.add_argument("-s", "--symbol", type=str, required=True,
                         help="Symbol to trade on")
     parser.add_argument("-p", "--position", type=str, required=True,
@@ -25,7 +27,7 @@ def init_args():
     parser.add_argument("-e", "--entry", type=float,
                         help="Entry price")
     parser.add_argument("-l", "--leverage", action="store_true", default=10,
-                        help="future contracts?")
+                        help="how much leverage (does not change the amount)")
     # stops
     parser.add_argument("-sla", "--stop-limit-activation", type=float,
                         help="Stop-limit activation price")
@@ -47,6 +49,7 @@ def init_args():
     parser.add_argument("-ct", "--callback-target", type=float,
                         help="Target trailing stop callback percentage")
     args = parser.parse_args()
+
     # basic logic errors
     assert args.position.upper() == 'BUY' or args.position.upper() == 'SELL', (
             "Position must be 'BUY' or 'SELL'")
@@ -105,177 +108,171 @@ def init_args():
             'target_value': target_value}
 
 
+# Client Entry-Target-Stop
 class ClientETS(Client):
-    def income_full_history(self):
+
+    def __init__(self, pub, pri, parsed_args):
+        super().__init__(pub, pri)
+        self.full_args = parsed_args['full_args']
+        self.stop_type = parsed_args['stop_type']
+        self.stop_value = parsed_args['stop_value']
+        self.target_type = parsed_args['target_type']
+        self.target_value = parsed_args['target_value']
+        self.entry = self.full_args.entry
+        self.amount = self.full_args.amount
+        self.position = self.full_args.position.upper()
+        self.invposition = 'BUY' if self.position == 'SELL' else 'SELL'
+        self.symbol = self.full_args.symbol
+        self.leverage = self.full_args.leverage
+
+        if self.full_args.verbose:
+            self.show_pnl_history()
+            
+
+    def show_pnl_history(self):
         incomes = self.futures_income_history()
-        types = set()
         total = 0
         for inc in incomes:
-            types.add(inc['incomeType'])
-            total += float(inc['income'])
-        return types, total
+            if inc['incomeType'] == 'REALIZED_PNL':
+                total += float(inc['income'])
+        return total
 
-    def custom_trailing(self, **params):
-        print('dormindo...')
+    def custom_trailing(self, callback):
+        print('1s wait... (why is this necessary?)')
         time.sleep(1)
-        print('dormiu')
-        thresh_price = params.get('thresh_price')
-        position = params.get('position')
-        symbol = params.get('symbol')
-        amount = params.get('amount')
-        callback = params.get('callback')
         while 1:
             try:
-                last_price = float(self.futures_symbol_ticker(symbol=symbol)['price'])
+                last_price = float(self.futures_symbol_ticker(symbol=self.symbol)['price'])
             except ReadTimeout:
-                print("timeout, trying again...")
+                print("timeout (custom_trailing), trying again...")
                 time.sleep(1)
                 continue
             print(f'last_price is {last_price}...')
-            if position == 'BUY':
-                if last_price > thresh_price:
+            if self.invposition == 'BUY':
+                if last_price > self.stop_value:
                     break
-            if position == 'SELL':
-                if last_price < thresh_price:
+            if self.invposition == 'SELL':
+                if last_price < self.stop_value:
                     break
             time.sleep(REFRESH_RATE)
 
-        print(f'BREAKEAOU')
-        # I don't know why, but here there cannot be timeInForce param.
-        return self.futures_create_order(symbol=symbol,
-                                  reduceOnly=True,
-                                  side=position,
-                                  positionSide='BOTH',
-                                  type='TRAILING_STOP_MARKET',
-                                  callbackRate=callback,
-                                  quantity=amount)
+        print('STOP HIT!')
+        # I don't know why, but here there cannot be a timeInForce param.
+        return self.futures_create_order(symbol=self.symbol,
+                                         reduceOnly=True,
+                                         side=self.invposition,
+                                         positionSide='BOTH',
+                                         type='TRAILING_STOP_MARKET',
+                                         callbackRate=callback,
+                                         quantity=self.amount)
 
-    def create_goal(self, parsed_args, amount, stop=0):
-        full_args = parsed_args['full_args']
-        stop_type = parsed_args['stop_type']
-        stop_value = parsed_args['stop_value']
-        target_type = parsed_args['target_type']
-        target_value = parsed_args['target_value']
-        position = 'BUY' if full_args.position.upper() == 'SELL' else 'SELL'
-        symbol = full_args.symbol
-
+    def create_goal(self, stop=0):
         if stop:
-            if stop_type == 'stop_limit_activation':
-                price_stop_limit = full_args.price_stop_limit
-                return self.futures_create_order(symbol=symbol,
+            if self.stop_type == 'stop_limit_activation':
+                price_stop_limit = self.full_args.price_stop_limit
+                return self.futures_create_order(symbol=self.symbol,
                                                  reduceOnly=True,
-                                                 side=position,
+                                                 side=self.invposition,
                                                  positionSide='BOTH',
                                                  type='STOP',
-                                                 quantity=amount,
-                                                 stopPrice=stop_value,
+                                                 quantity=self.amount,
+                                                 stopPrice=self.stop_value,
                                                  price=price_stop_limit,
                                                  timeInForce='GTC')
-            elif stop_type == 'stop_market':
-                return self.futures_create_order(symbol=symbol,
+            elif self.stop_type == 'stop_market':
+                return self.futures_create_order(symbol=self.symbol,
                                                  reduceOnly=True,
-                                                 side=position,
+                                                 side=self.invposition,
                                                  positionSide='BOTH',
                                                  type='STOP_MARKET',
-                                                 quantity=amount,
-                                                 stopPrice=stop_value,
+                                                 quantity=self.amount,
+                                                 stopPrice=self.stop_value,
                                                  timeInForce='GTC')
-            elif stop_type == 'stop_trailing_stop':
-                callback_stop = full_args.callback_stop
-                local_args = {'thresh_price': stop_value,
-                              'symbol': symbol,
-                              'position': position,
-                              'amount': amount,
-                              'callback': callback_stop}
+            elif self.stop_type == 'stop_trailing_stop':
+                callback_stop = self.full_args.callback_stop
 
-                p = Process(target=self.custom_trailing, kwargs=local_args)
+                p = Process(target=self.custom_trailing, args=(callback_stop,))
                 p.start()
                 return (p.pid, p)
         else:
-            if target_type == 'target_limit':
-                return self.futures_create_order(symbol=symbol,
+            if self.target_type == 'target_limit':
+                return self.futures_create_order(symbol=self.symbol,
                                                  reduceOnly=True,
-                                                 side=position,
+                                                 side=self.invposition,
                                                  positionSide='BOTH',
-                                                 type='TAKE_PROFIT',
-                                                 quantity=amount,
-                                                 price=target_value,
+                                                 price=self.target_value,
+                                                 type='LIMIT',
+                                                 quantity=self.amount,
                                                  timeInForce='GTC')
-            elif target_type == 'target_market':
-                return self.futures_create_order(symbol=symbol,
-                                          reduceOnly=True,
-                                          side=position,
-                                          positionSide='BOTH',
-                                          stopPrice=target_value,
-                                          type='TAKE_PROFIT_MARKET',
-                                          quantity=amount,
-                                          timeInForce='GTC')
-            elif target_type == 'target_trailing_stop':
-                callback_target = full_args.callback_target
-                return self.futures_create_order(symbol=symbol,
+            elif self.target_type == 'target_market':
+                return self.futures_create_order(symbol=self.symbol,
                                                  reduceOnly=True,
-                                                 side=position,
+                                                 side=self.invposition,
+                                                 positionSide='BOTH',
+                                                 stopPrice=self.target_value,
+                                                 type='TAKE_PROFIT_MARKET',
+                                                 quantity=self.amount,
+                                                 timeInForce='GTC')
+            elif self.target_type == 'target_trailing_stop':
+                callback_target = self.full_args.callback_target
+                return self.futures_create_order(symbol=self.symbol,
+                                                 reduceOnly=True,
+                                                 side=self.invposition,
                                                  positionSide='BOTH',
                                                  type='TRAILING_STOP_MARKET',
-                                                 quantity=amount,
+                                                 quantity=self.amount,
                                                  callbackRate=callback_target,
-                                                 activationPrice=target_value)
+                                                 activationPrice=self.target_value)
 
     def clear_goals(self, goal_dict):
         if stop := goal_dict['stop']:
             if type(stop) == dict:  # case where target is an order.
-                self.futures_cancel_order(symbol=stop['symbol'], orderId=stop['orderId'])
+                self.futures_cancel_order(symbol=self.symbol, orderId=stop['orderId'])
             elif type(stop) == tuple:  # case where target is process
                 stop[1].terminate()
         if target := goal_dict['target']:
-            self.futures_cancel_order(symbol=target['symbol'], orderId=target['orderId'])
+            self.futures_cancel_order(symbol=self.symbol, orderId=target['orderId'])
 
-    def entry_target_stop(self, parsed_args):
-        full_args = parsed_args['full_args']
-        position = full_args.position.upper()
-        amount = full_args.amount
-        symbol = full_args.symbol
-        leverage = full_args.leverage
-        entry = full_args.entry
-        self.futures_change_leverage(symbol=symbol, leverage=leverage)
+    def entry_target_stop(self):
+        self.futures_change_leverage(symbol=self.symbol, leverage=self.leverage)
         goals = {'stop': '', 'target': ''}
 
         # case where we are already on position
-        if not entry:
-            goals['stop'] = self.create_goal(parsed_args, amount, stop=1)
-            goals['target'] = self.create_goal(parsed_args, amount)
+        if not self.entry:
+            goals['stop'] = self.create_goal(stop=1)
+            goals['target'] = self.create_goal()
             print("goals set.")
             return goals
 
         # set limit order
-        limit = self.futures_create_order(symbol=symbol,
-                                          side=position,
+        limit = self.futures_create_order(symbol=self.symbol,
+                                          side=self.position,
                                           positionSide='BOTH',
                                           type='LIMIT',
-                                          quantity=amount,
-                                          price=entry,
+                                          quantity=self.amount,
+                                          price=self.entry,
                                           timeInForce='GTC')
 
         # set goals
         executed = 0
         print('sending limit...')
+        # loop to wait for order to be filled or canceled.
         while limit['status'] != 'CANCELED':
             time.sleep(REFRESH_RATE)
-            limit = self.futures_get_order(symbol=symbol, orderId=limit['orderId'])
+            limit = self.futures_get_order(symbol=self.symbol, orderId=limit['orderId'])
             if limit['status'] == 'NEW':
                 continue
             elif limit['executedQty'] != executed:
                 print(f"limit status is {limit['status']}...")
-                print(f"{limit['executedQty']} foi executado!")
+                print(f"{self.position} {limit['executedQty']}{self.symbol} foi executado!")
                 self.clear_goals(goals)
-                goals['stop'] = self.create_goal(parsed_args, limit['executedQty'], stop=1)
-                goals['target'] = self.create_goal(parsed_args, limit['executedQty'])
+                goals['stop'] = self.create_goal(stop=1)
+                goals['target'] = self.create_goal()
                 executed = limit['executedQty']
 
             if limit['status'] == 'FILLED':
                 break
-            print(f"goals: {goals}")
-        print(f"all target and stops are set\n---/---")
+        print("all target and stops are set\n---/---")
         return goals
 
     def watch_for_end(self, goals):
@@ -283,35 +280,37 @@ class ClientETS(Client):
         time.sleep(1)
         stop = goals['stop']
         target = goals['target']
-        symbol = goals['target']['symbol']
+
+        print("Waiting for exit...")
         while True:
             try:
-                print("waiting at exit loop...")
                 if type(stop) == dict:  # case where target is an order.
-                    stop_status = self.futures_get_order(symbol=symbol, orderId=stop['orderId'])['status']
+                    stop_status = self.futures_get_order(symbol=self.symbol, orderId=stop['orderId'])['status']
                     stop_is_on = stop_status != 'FILLED'
 
                 elif type(stop) == tuple:  # case where target is process
                     stop_is_on = stop[1].is_alive()
                     stop_status = stop_is_on
 
-                target_status = self.futures_get_order(symbol=symbol, orderId=target['orderId'])['status']
+                target_status = self.futures_get_order(symbol=self.symbol, orderId=target['orderId'])['status']
                 target_is_on = target_status != 'FILLED'
             except ReadTimeout:
-                print("timeout, trying again...")
+                print("timeout (watch_for_end), trying again...")
                 time.sleep(1)
                 continue
-            
+
             if not (target_is_on and stop_is_on):
+                self.clear_goals(goals)
                 return
             time.sleep(1)
 
 
 if __name__ == '__main__':
     parsed_args = init_args()
-    client = ClientETS(pub, pri)
+    client = ClientETS(pub, pri, parsed_args)
     try:
-        goals = client.entry_target_stop(parsed_args)
+        goals = client.entry_target_stop()
         client.watch_for_end(goals)
     except KeyboardInterrupt:
+        # <--- fix here
         client.futures_cancel_all_open_orders(symbol=parsed_args['full_args'].symbol)
