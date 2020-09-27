@@ -63,4 +63,4 @@ Examples:
     * This command will try to sell (short) 50 LINKS at $19.9. If it succeds on doing so, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
 
 
-Note that the `-e` option is not required: you can also use the script if you are already on a poistion.
+Note that the `-e` option is not required: you can also use the script if you are already on a position.
