@@ -1,5 +1,4 @@
 import argparse
-import request
 from binance.client import Client
 from api import pub, pri
 import time
