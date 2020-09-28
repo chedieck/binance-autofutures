@@ -44,7 +44,7 @@ optional arguments:
 (Working in progress, will update the documentation in the future.)
 ### WARNING! This code is a work in progress and may contain bugs. Use it at your own risk.
 
-This script uses **Binance API**. To set up the keys, just create an `api.py` file on your cloned directory with two lines:
+This script uses **Binance API** and depends on [python-binance](https://github.com/sammchardy/python-binance). To set up the keys, just create an `api.py` file on your cloned directory with two lines:
 
 ```
 pub = "<your_public_api_key_goes_here>"
