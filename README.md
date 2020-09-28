@@ -60,17 +60,17 @@ When running the command, note that the `--symbol`, `--amount` and `--position` 
 The `--amount` is the quantity that will be longed/shorted, and it is not affected by the `--leverage`. For example, if the leverage is set to 20x (default value), and you choose to buy 1 BTC (`--symbol BTCUSDT --position buy --amount 1`) for 10000 dollars, then 500 dollars of your futures wallet will be needed to process the order. On the other hand, if you pass the additional `--leverage 100` argument, thus setting the leverage to 100x, only 100 dollars will be needed. On those two scenarios the potential for profits and losses are the same, as in both of them a long position of exactly 1 BTC will be set.
 
 
-The `--verbose`, `--leverage` options are not required. The `--entry` option is also not required: you can also use the script if you are already on a position.
+The `--verbose` and `--leverage` options are not required. The `--entry` option is also not required: you can also use the script if you are already on a position.
 
 ---
 
 Examples: 
 1. `python entry_stop_target.py -s BTCUSDT -p buy -a 0.1 -e 10686.5 -sts 10680 -cs 0.1 -tl 10690`
 
-    * This command will try to buy 0.1 BTC at $10686.5. If it succeds on doing so, it will set a limit order to close the position (sell the same amount, 0.1 BTC) at $10690; or, if the price reaches $10680 first, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order with a callback rate of 0.1%.
+    * This command will try to buy (long) 0.1 BTC at $10686.5 by setting a limit order. If this order is filled, it will set a limit order to close the position (sell the same amount, 0.1 BTC) at $10690; or, if the price reaches $10680 first, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order with a callback rate of 0.1%.
 
 2. `python entry_stop_target.py -s LINKUSDT -p sell -a 50 -e 19.9 -sm 21 -tts 15.1 -ct 1`
 
-    * This command will try to sell (short) 50 LINKS at $19.9. If it succeds on doing so, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
+    * This command will try to sell (short) 50 LINKS at $19.9 by setting a limit order. If this order is filled, it will set a [trailing stop](https://www.binance.com/en/support/faq/360042299292) order at $15.1 to close the position (buy the same amount, 50 LINKS), with callback rate of 1%; or it will close the position by buying at market price, if the price ever reaches $21.
 
 
