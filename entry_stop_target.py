@@ -25,7 +25,7 @@ def init_args():
                         help="amount to be traded")
     parser.add_argument("-e", "--entry", type=float,
                         help="Entry price")
-    parser.add_argument("-l", "--leverage", action="store_true", default=10,
+    parser.add_argument("-l", "--leverage", type=int, default=10,
                         help="how much leverage (does not change the amount)")
     # stops
     parser.add_argument("-sla", "--stop-limit-activation", type=float,
@@ -109,7 +109,6 @@ def init_args():
 
 # Client Entry-Target-Stop
 class ClientETS(Client):
-
     def __init__(self, pub, pri, parsed_args):
         super().__init__(pub, pri)
         self.full_args = parsed_args['full_args']
